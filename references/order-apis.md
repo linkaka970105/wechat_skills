@@ -1,6 +1,15 @@
 # Order APIs
 
-整理微信小店高频订单查询接口。默认使用服务端调用，需携带 `access_token` 或第三方代调用场景下的 `authorizer_access_token`。
+整理微信小店高频订单查询接口。
+
+## 统一策略
+
+订单查询默认分成两个阶段：
+
+1. 列表或搜索阶段：先拿到 `order_id`
+2. 明细补全阶段：按需调用详情接口
+
+不要把“查一个月全部订单”写成普通对话里的串行逐条补全。大任务必须进入批处理模式。
 
 ## 获取订单列表
 
@@ -9,75 +18,43 @@
 - 方法：`POST`
 - 路径：`/channels/ec/order/list/get`
 - 类型：只读查询
-- 作用：按创建时间、更新时间、订单状态、买家 `openid` 查询订单列表。
+- 用途：按创建时间、更新时间、订单状态、买家 `openid` 查询订单列表
 - 官方文档：https://developers.weixin.qq.com/doc/store/shop/API/channels-shop-order/api_getorderlist
 
 ### 请求参数
 
 #### Query
 
-- `access_token`: string，必填，接口调用凭证
+- `access_token`: string，必填
 
 #### Body
 
-- `create_time_range`: object，必填，订单创建时间范围
-- `create_time_range.start_time`: number，必填，秒级时间戳，和 `end_time` 间隔不可超过 7 天
-- `create_time_range.end_time`: number，必填，秒级时间戳，和 `start_time` 间隔不可超过 7 天
-- `update_time_range`: object，可选，订单更新时间范围
-- `update_time_range.start_time`: number，可选，秒级时间戳
-- `update_time_range.end_time`: number，可选，秒级时间戳
-- `status`: number，可选，订单状态
-- `openid`: string，可选，买家身份标识
-- `page_size`: number，可选，每页数量，不超过 100
-- `next_key`: string，分页参数；首页可不传，翻页时必须传上次返回值
-
-### 订单状态枚举
-
-- `10`: 待付款
-- `12`: 礼物待收下
-- `13`: 一起买待成团
-- `20`: 待发货
-- `21`: 部分发货
-- `30`: 待收货
-- `100`: 完成
-- `250`: 订单取消
+- `create_time_range.start_time`: number，必填，秒级时间戳
+- `create_time_range.end_time`: number，必填，秒级时间戳，和开始时间间隔不能超过 7 天
+- `update_time_range`: object，可选
+- `status`: number，可选
+- `openid`: string，可选
+- `page_size`: number，可选，不超过 100
+- `next_key`: string，可选，翻页上下文
 
 ### 返回字段
 
-- `errcode`: number，错误码
-- `errmsg`: string，错误信息
-- `order_id_list`: array，订单号列表
-- `next_key`: string，下一页参数
-- `has_more`: boolean，是否还有下一页
+- `order_id_list`
+- `next_key`
+- `has_more`
 
-### 最小请求示例
+### 使用建议
 
-```json
-{
-  "create_time_range": {
-    "start_time": 1735689600,
-    "end_time": 1735776000
-  },
-  "page_size": 20
-}
-```
+- 适合批量拉取订单 ID
+- 适合后续进入详情补全
+- 不适合直接回答“完整订单字段导出”
 
-### 适用场景
+### 批处理建议
 
-- 按时间窗口批量拉取订单
-- 按订单状态查看待发货、已完成、已取消订单
-- 为后续订单详情查询先拿到 `order_id`
-
-### 不适用场景
-
-- 想按商品标题、复杂条件模糊搜索订单
-- 想查询单个订单的完整详情
-
-### 注意事项
-
-- 时间范围最多 7 天。
-- 翻页时，除 `next_key` 外，其余查询条件必须与上一页一致。
-- 这个接口更适合批量拉单，不适合灵活检索。
+- 月度查询必须按 7 天切片
+- 每个时间窗都要翻完 `next_key`
+- 汇总后去重 `order_id`
+- 命中量大时进入批处理详情模式
 
 ## 获取订单详情
 
@@ -86,7 +63,7 @@
 - 方法：`POST`
 - 路径：`/channels/ec/order/get`
 - 类型：只读查询
-- 作用：根据 `order_id` 获取单个订单完整详情。
+- 用途：根据 `order_id` 获取单个订单完整详情
 - 官方文档：https://developers.weixin.qq.com/doc/store/shop/API/channels-shop-order/api_getorder
 
 ### 请求参数
@@ -97,37 +74,22 @@
 
 #### Body
 
-- `order_id`: string，必填，订单 ID
+- `order_id`: string，必填
 
 ### 返回重点
 
 - 订单基础信息
 - 商品明细
+- 实收与优惠信息
 - 收货与物流信息
-- 订单状态与售后相关信息
-- 虚拟号或联系方式相关字段可能随权限和场景变化
+- 订单状态
+- 售后相关字段
 
-### 最小请求示例
+### 使用建议
 
-```json
-{
-  "order_id": "37423523451235145"
-}
-```
-
-### 适用场景
-
-- 已知 `order_id`，查看单笔订单完整信息
-- 获取订单商品明细、物流信息、状态信息
-
-### 不适用场景
-
-- 批量拉单
-- 模糊条件搜索订单
-
-### 注意事项
-
-- 若需要完整收货敏感信息，通常还要结合敏感信息解密类接口，不建议默认直接做。
+- 适合查询单笔订单
+- 适合对小集合订单做限定补全
+- 大批量导出时，应通过分块并发执行，而不是普通串行调用
 
 ## 订单搜索
 
@@ -136,7 +98,7 @@
 - 方法：`POST`
 - 路径：`/channels/ec/order/search`
 - 类型：只读查询
-- 作用：按更灵活的条件搜索订单，适合客服或运营按标题、状态、售后条件等查单。
+- 用途：按更灵活的条件搜索订单
 - 官方文档：https://developers.weixin.qq.com/doc/store/shop/API/channels-shop-order/api_searchorder
 
 ### 请求参数
@@ -147,44 +109,20 @@
 
 #### Body
 
-- `search_condition`: object，必填，至少设置一个字段
-- `search_condition.title`: string，可选，商品标题相关搜索条件
+- `search_condition`: object，至少包含一个过滤条件
 - `on_aftersale_order_exist`: number，可选
-  - 不传：搜索全部订单
-  - `0`: 没有正在售后的订单
-  - `1`: 正在售后且售后单数量大于等于 1
-- `status`: number，可选，订单状态
-- `page_size`: number，必填，每页数量，不超过 100
-- `next_key`: string，分页参数；首页可不传，翻页时传上次返回值
+- `status`: number，可选
+- `page_size`: number，必填，不超过 100
+- `next_key`: string，可选
 
-### 返回字段
+### 使用建议
 
-- 搜索结果列表或订单号集合
-- `next_key`: 下一页上下文
-- `has_more`: 是否还有更多结果
+- 适合模糊条件、售后条件、状态组合筛选
+- 搜索结果仍然应视为“ID 收集阶段”或“轻量列表阶段”
+- 若用户要完整字段，继续进入 `getorder` 详情补全
 
-### 最小请求示例
+## 技能落地规则
 
-```json
-{
-  "search_condition": {
-    "title": "牛奶"
-  },
-  "page_size": 20
-}
-```
-
-### 适用场景
-
-- 按商品标题、售后状态、订单状态组合查单
-- 客服按模糊条件快速定位订单
-
-### 不适用场景
-
-- 只按时间批量拉取订单
-- 已知 `order_id` 的精确详情查询
-
-### 注意事项
-
-- `search_condition` 内必须至少有一个过滤字段。
-- 比“获取订单列表”更适合模糊搜索和带售后条件筛选。
+- `summary_only`：只返回命中数量、订单 ID、状态、分页
+- `detail_on_demand`：仅对小集合订单补详情
+- `full_export`：固定走“切片 -> 分页 -> 去重 -> 分块并发详情”

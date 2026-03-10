@@ -2,6 +2,13 @@
 
 整理赠品与限时抢购相关高频查询接口。
 
+## 统一策略
+
+营销场景分两类：
+
+- 列表已足够回答问题：直接返回列表摘要
+- 用户明确要单条完整字段：再补单条详情
+
 ## 获取赠品列表
 
 - 中文名：获取赠品列表
@@ -9,91 +16,35 @@
 - 方法：`POST`
 - 路径：`/channels/ec/product/gift/list/get`
 - 类型：只读查询
-- 作用：按状态分页获取赠品列表。
+- 用途：按状态分页获取赠品列表
 - 官方文档：https://developers.weixin.qq.com/doc/store/shop/API/channels-shop-product/gift/api_getgiftproductlist
-
-### 请求参数
-
-#### Query
-
-- `access_token`: string，必填
-
-#### Body
-
-- `status`: number，可选，赠品状态；不填默认拉全部赠品，不包含回收站
-- `page_size`: number，必填，默认 10，不超过 30
-- `next_key`: string，可选，分页上下文
 
 ### 返回重点
 
 - 赠品 ID 列表
-- 下一页参数
+- `next_key`
 - 总量信息
 
-### 最小请求示例
+### 使用建议
 
-```json
-{
-  "page_size": 20
-}
-```
+- 这是 ID 收集或轻量列表阶段
+- 不要默认把整页赠品都逐条补详情
 
-### 适用场景
-
-- 拉取赠品清单
-- 后续逐条获取赠品详情
-
-### 不适用场景
-
-- 查询单个赠品完整字段
-
-## 获取赠品
+## 获取赠品详情
 
 - 中文名：获取赠品
 - 英文名：`getgiftproduct`
 - 方法：`POST`
 - 路径：`/channels/ec/product/gift/get`
 - 类型：只读查询
-- 作用：根据赠品 ID 获取赠品详情。
+- 用途：根据赠品 ID 获取完整详情
 - 官方文档：https://developers.weixin.qq.com/doc/store/shop/API/channels-shop-product/gift/api_getgiftproduct
 
-### 请求参数
+### 使用建议
 
-#### Query
-
-- `access_token`: string，必填
-
-#### Body
-
-- `product_id`: string，必填，赠品 ID
-- `data_type`: number，可选，默认 `1`
-  - `1`: 获取线上数据
-  - `2`: 获取草稿数据
-  - `3`: 同时获取线上和草稿数据
-
-### 返回重点
-
-- 赠品基础信息
-- 类目、图片、属性、SKU
-- 草稿与线上数据
-
-### 最小请求示例
-
-```json
-{
-  "product_id": "1234567890",
-  "data_type": 1
-}
-```
-
-### 适用场景
-
-- 查看赠品完整详情
-- 核对赠品属性和 SKU
-
-### 不适用场景
-
-- 批量拉赠品清单
+- 单赠品查询时直接使用
+- 小批量命中结果补全时使用
+- 大批量赠品导出时，按固定分块并发策略执行
 
 ## 获取限时抢购任务列表
 
@@ -102,45 +53,16 @@
 - 方法：`POST`
 - 路径：`/channels/ec/product/limiteddiscounttask/list/get`
 - 类型：只读查询
-- 作用：分页获取限时抢购任务。
+- 用途：分页获取限时抢购任务
 - 官方文档：https://developers.weixin.qq.com/doc/store/shop/API/channels-shop-product/limiteddiscounttask/api_getlimiteddiscounttasklist
 
-### 请求参数
+### 使用建议
 
-#### Query
+- 通常先直接消费列表结果
+- 若未来接入详情接口，再纳入统一“列表 -> 明细补全”模式
 
-- `access_token`: string，必填
+## 技能落地规则
 
-#### Body
-
-- `status`: number，可选，按任务状态筛选；不填则获取全部状态
-- `page_size`: number，必填，默认 10，不超过 50
-- `next_key`: string，可选，翻页上下文
-
-### 返回重点
-
-- 抢购任务列表
-- 任务状态
-- 分页信息
-
-### 最小请求示例
-
-```json
-{
-  "page_size": 20
-}
-```
-
-### 适用场景
-
-- 活动巡检
-- 运营查看抢购排期
-- 排查当前是否有有效抢购任务
-
-### 不适用场景
-
-- 创建、停止或删除抢购任务
-
-### 注意事项
-
-- 正式接入时建议补全 `status` 枚举，方便 agent 根据状态精确筛选。
+- 赠品：`list -> detail`
+- 抢购任务：优先列表摘要
+- 大批量任务默认先汇总，再决定是否补单条详情

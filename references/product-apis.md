@@ -2,6 +2,15 @@
 
 整理微信小店高频商品查询接口。
 
+## 统一策略
+
+商品场景默认分成两个阶段：
+
+1. 列表阶段：先拿 `product_id`
+2. 明细阶段：按需调用 `getproduct`
+
+不要把商品列表查询默认写成全量逐条详情补拉。
+
 ## 获取商品列表
 
 - 中文名：获取商品列表
@@ -9,7 +18,7 @@
 - 方法：`POST`
 - 路径：`/channels/ec/product/list/get`
 - 类型：只读查询
-- 作用：按商品状态分页获取商品 ID 列表。
+- 用途：按状态分页获取商品 ID 列表
 - 官方文档：https://developers.weixin.qq.com/doc/store/shop/API/channels-shop-product/shop/api_getproductlist
 
 ### 请求参数
@@ -20,63 +29,30 @@
 
 #### Body
 
-- `status`: number，可选，商品状态；不填默认拉取全部商品，但不包含从未上架的草稿和回收站商品
-- `page_size`: number，必填，默认 10，不超过 30
-- `next_key`: string，可选，翻页上下文
-
-### 商品状态枚举
-
-- `0`: 初始值
-- `5`: 上架
-- `6`: 回收站
-- `9`: 彻底删除
-- `11`: 自主下架
-- `13`: 违规下架或风控下架
-- `14`: 保证金不足下架
-- `15`: 品牌过期下架
-- `20`: 商品被封禁
+- `status`: number，可选
+- `page_size`: number，必填，不超过 30
+- `next_key`: string，可选
 
 ### 返回字段
 
-- `errcode`: number，错误码
-- `errmsg`: string，错误信息
-- `product_ids`: array，商品 ID 列表
-- `next_key`: string，下一页上下文
-- `total_num`: number，商品总数
+- `product_ids`
+- `next_key`
+- `total_num`
 
-### 最小请求示例
+### 使用建议
 
-```json
-{
-  "status": 5,
-  "page_size": 20
-}
-```
+- 适合分页拿商品 ID
+- 适合盘点商品池、在售商品、指定状态商品
+- 不适合直接回答完整商品详情问题
 
-### 适用场景
-
-- 拉取在售商品列表
-- 分页查看店铺商品池
-- 先拿 `product_id`，再逐条查商品详情
-
-### 不适用场景
-
-- 查询单个商品完整字段
-- 查询库存
-
-### 注意事项
-
-- 这个接口返回的是商品 ID 列表，不是完整商品详情。
-- 获取详情时应继续调用“获取商品”。
-
-## 获取商品
+## 获取商品详情
 
 - 中文名：获取商品
 - 英文名：`getproduct`
 - 方法：`POST`
 - 路径：`/channels/ec/product/get`
 - 类型：只读查询
-- 作用：根据商品 ID 获取单个商品详情。
+- 用途：根据 `product_id` 获取单个商品详情
 - 官方文档：https://developers.weixin.qq.com/doc/store/shop/API/channels-shop-product/shop/api_getproduct
 
 ### 请求参数
@@ -87,40 +63,26 @@
 
 #### Body
 
-- `product_id`: string，必填，商品 ID
+- `product_id`: string，必填
 - `data_type`: number，可选，默认 `1`
-  - `1`: 获取线上数据
-  - `2`: 获取草稿数据
-  - `3`: 同时获取线上和草稿数据
 
 ### 返回重点
 
-- 商品基础信息
-- 标题、图片、类目、属性、SKU
-- 上架态和草稿态相关信息
-- 新类目树字段 `cats_v2`
+- 商品标题
+- 图片
+- 类目
+- 属性
+- SKU 信息
+- 线上与草稿数据
 
-### 最小请求示例
+### 使用建议
 
-```json
-{
-  "product_id": "1234567001",
-  "data_type": 1
-}
-```
+- 单商品查看时直接使用
+- 小批量命中结果补全时使用
+- 大规模商品导出时，走固定分块并发策略
 
-### 适用场景
+## 技能落地规则
 
-- 查看商品完整详情
-- 比对线上数据和草稿数据
-- 获取商品类目、图片、SKU 等完整字段
-
-### 不适用场景
-
-- 批量分页拉商品列表
-- 查询库存流水
-
-### 注意事项
-
-- 已上架过的商品，`data_type=3` 更适合做线上与草稿对比。
-- 建议优先关注 `cats_v2`，兼容新类目树。
+- `summary_only`：返回商品 ID、数量、状态、分页
+- `detail_on_demand`：对小集合 `product_id` 补详情
+- `full_export`：先收集全部 `product_id`，再分块补详情
